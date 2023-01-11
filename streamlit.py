@@ -27,9 +27,11 @@ with mode[1]:
     st.title("Automatic Mode")
     uploaded_videos = st.file_uploader("Upload Video files",type=["mp4"],accept_multiple_files=True,key="automatic")
     model = st.radio("Choose model",("resnet.LSTM","inception_resnet.LSTM","resnet.TCN","inception_resnet.TCN"))
-
-    with open(f"{zip_name}.zip","rb") as fp:
-        btn = st.download_button(label="Download results",data=fp,file_name=f"{zip_name}.zip",mime="application/zip")
+    try:
+        with open(f"{zip_name}.zip","rb") as fp:
+            btn = st.download_button(label="Download results",data=fp,file_name=f"{zip_name}.zip",mime="application/zip")
+    except IOError:
+            btn = st.download_button(label="Download results",data=None,disabled=True)
 
 with mode[0]:
     st.title("Manual Mode")
