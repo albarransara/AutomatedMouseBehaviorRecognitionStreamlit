@@ -31,7 +31,7 @@ with mode[1]:
         with open(f"{zip_name}.zip","rb") as fp:
             btn = st.download_button(label="Download results",data=fp,file_name=f"{zip_name}.zip",mime="application/zip")
     except IOError:
-            btn = st.download_button(label="Download results",data=None,disabled=True)
+            btn = st.button(label="Download results",data=None,disabled=True)
 
 with mode[0]:
     st.title("Manual Mode")
