@@ -65,6 +65,14 @@ def analyze_df(df,results):
 
     # Get action at each frame
     actions = ['no_action']*num_frames
+    
+    # First filter data with threshold
+    thershold = 0.8 
+    results.loc[results['grooming'] < thershold,'grooming'] = 0
+    results.loc[results['mid_rearing'] < thershold,'mid_rearing'] = 0
+    results.loc[results['wall_rearing'] < thershold,'wall_rearing'] = 0
+    
+    # Then apply argmax
     for ind,row in results.iterrows():
         if max(row) != 0:
             actions[ind] = results.columns[np.argmax(row)]
