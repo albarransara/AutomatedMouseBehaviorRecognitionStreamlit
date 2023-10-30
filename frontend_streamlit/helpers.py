@@ -67,10 +67,14 @@ def analyze_df(df,results):
     actions = ['no_action']*num_frames
     
     # First filter data with threshold
-    thershold = 0.8 
-    results.loc[results['grooming'] < thershold,'grooming'] = 0
-    results.loc[results['mid_rearing'] < thershold,'mid_rearing'] = 0
-    results.loc[results['wall_rearing'] < thershold,'wall_rearing'] = 0
+    thershold = 0.8
+    print(results.head())
+    if 'Grooming' in results.columns:
+        results.loc[results['Grooming'] < thershold,'grooming'] = 0
+    if 'Rearing mig' in results.columns:
+        results.loc[results['Rearing mig'] < thershold,'mid_rearing'] = 0
+    if 'Rearing paret' in results.columns:
+        results.loc[results['Rearing paret'] < thershold,'wall_rearing'] = 0
     
     # Then apply argmax
     for ind,row in results.iterrows():
