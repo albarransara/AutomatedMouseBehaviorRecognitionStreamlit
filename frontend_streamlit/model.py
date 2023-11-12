@@ -81,7 +81,7 @@ def predict_video(features, behaviours):
         print('Batch ', i)
 
         f = feature_extraction(features[i: i + 300])
-        f2 = np.zeros((1, 300, 2048))
+        f2 = np.zeros((1, 1650, 2048))
         f2[0] = f
 
         # Get the result for each wanted behaviour
