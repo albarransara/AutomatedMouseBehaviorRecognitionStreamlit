@@ -1,16 +1,14 @@
 import streamlit as st
-import pandas as pd
 from helpers import *
 from model import *
 import zipfile
-import itertools
 
 # os.system('pip install -r requirements.txt')
 
 # Define applications title
 st.title("Automated Mouse Behavior Recognition")
 
-
+# Convert video to a bytes buffer
 def write_bytesio_to_file(filename, bytesio):
     """
     Write the contents of the given BytesIO to a file.
@@ -21,7 +19,7 @@ def write_bytesio_to_file(filename, bytesio):
         # Copy the BytesIO stream to the output file
         outfile.write(bytesio.getbuffer())
 
-
+# Perform distance analysis of the video
 @st.cache_data
 def analyze_files(labels, video_name):
     return annotate_video(labels, video_name, "")
@@ -136,6 +134,8 @@ with mode[0]:
 
 # Second page, automatic
 with (mode[1]):
+
+    # Define all frontend components for Automatic tab
     st.title("Automatic Mode")
     st.markdown(
         "In automatic mode you can upload videos with their corresponding unlabeled DeepLabCut csv files and you will automatically get them labeled.")
@@ -155,6 +155,7 @@ with (mode[1]):
     with st.sidebar:
         time_unit = st.radio("Choose display unit", ("seconds", "frames"))
 
+    # Process imputed data by the user
     video_names = set()  # Variable where we will save all the uploaded videos
     does_match = True  # Boolean variable to know if the uploaded data is correct
 
@@ -186,22 +187,22 @@ with (mode[1]):
         for csv_name in tab_names:
             corresponding_video_name = csv_name.split("_")[2] + ".mp4"
             if corresponding_video_name not in video_names or len(uploaded_csvs) != len(uploaded_videos):
-                st.write("Make sure that each video has a corresponding .csv file and vice-versa")
+                st.write("Make sure that each video has a corresponding .csv file and vice-versa.")
                 does_match = False
     else:
         st.write("You haven't upload any videos yet!")
         does_match = False
 
-    # If all videos have their corresponding csv's, we process them and generate the results
+    # If all videos have their corresponding csv, we can process them and generate the results
     if does_match:
+
         # Create the zip file where we will save the results
         z = zipfile.ZipFile(f"{zip_name}.zip", mode="w")
 
-        matrix = [] #TODO revisar que es esto
 
         for uploaded_csv in uploaded_csvs:
             write_bytesio_to_file(uploaded_csv.name, uploaded_csv)  # Add csv to video cav in bytes
-            z.write(uploaded_csv.name)
+        #    z.write(uploaded_csv.name)
 
         # For each uploaded video we create a tab for its results
         tabs = st.tabs(tab_names)
@@ -216,10 +217,8 @@ with (mode[1]):
 
                 # Pass to the model the video and the csv and obtain prediction
                 result_percentage, results = classify_video(df, video_name, "", behaviours)
-                print(results)
-
+                # Post-process results
                 labels, distances = analyze_df(df, results)
-
                 fps = analyze_files(labels, video_name)
 
                 distances['seconds'] = distances['frames'].map(lambda x: x / fps)

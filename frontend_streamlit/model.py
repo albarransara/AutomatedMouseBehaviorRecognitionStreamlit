@@ -1,16 +1,9 @@
 # profilying memory python, %memit %mprune
-
-
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 import cv2
 from backboneResNet import FeatureExtractor
-
-# Import the NN model
-# model_g = tf.keras.models.load_model('resnet_lstm_accuracy_grooming.h5')
-# model_mr = tf.keras.models.load_model('resnet_lstm_accuracy_mid_rearing.h5')
-# model_wm = tf.keras.models.load_model('resnet_lstm_accuracy_wall_rearing.h5')
 
 def classify_video(csv, video_name, path_to_video, behaviours):
     # Process video and csv to get the model input
@@ -18,7 +11,6 @@ def classify_video(csv, video_name, path_to_video, behaviours):
     # Pass the input to the backbone, so we can extract the features and process them through the second model
     result_percentage, results = predict_video(inputs, behaviours)
     return result_percentage, results
-
 
 # Preprocess data from the video, so we can generate the NN's input
 # Split video frames and crop by the midbody position
@@ -55,7 +47,6 @@ def preprocess_video(df, video_name, path_to_video):
 
     return frames
 
-
 # Extract features through the Backbone model
 def feature_extraction(frames):
     features = []
@@ -65,7 +56,6 @@ def feature_extraction(frames):
         features.append(feature_extractor(frame))
 
     return np.array(features)
-
 
 # Extract features through the Backbone model and get the final prediction through the final model
 def predict_video(features, behaviours):

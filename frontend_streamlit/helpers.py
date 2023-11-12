@@ -56,18 +56,15 @@ def get_summary_data(period_set):
 def get_dist(xdiff,ydiff):
     return math.sqrt(xdiff**2+ydiff**2)
 
-# TODO arreclar aquest metode
+# Method to post process NN results
 def analyze_df(df,results):
 
-    #label_names = df.columns[1:-2] # Get the possible actions names, ESTA MAL, pilla columnas de la psoicion del animal
-
     num_frames = df.shape[0]
-
     # Get action at each frame
     actions = ['no_action']*num_frames
     
     # First filter data with threshold
-    thershold = 0.8
+    thershold = 0.7
     print(results.head())
     if 'Grooming' in results.columns:
         results.loc[results['Grooming'] < thershold,'grooming'] = 0
@@ -83,6 +80,9 @@ def analyze_df(df,results):
 
     df['actions'] = actions
 
+
+    #TODO revisar esto
+    #Calculate how much distance the mouse has moved
     d_x = []
     d_y = []
     d_t = []
@@ -90,9 +90,6 @@ def analyze_df(df,results):
     cd_y = []
     cd_t = []
 
-
-    #TODO revisar esto
-    #Calculate how much distance the mouse has moved
     df_slice = df.iloc[:,-3:-1]
     for ind, row in df_slice.iterrows():
         if ind < num_frames-1:
