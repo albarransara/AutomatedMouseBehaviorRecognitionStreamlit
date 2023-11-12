@@ -77,10 +77,10 @@ def predict_video(features, behaviours):
     mid_rearing = []
     wall_rearing = []
 
-    for i in range(0, len(features), 300):
+    for i in range(0, len(features), 1650):
         print('Batch ', i)
 
-        f = feature_extraction(features[i: i + 300])
+        f = feature_extraction(features[i: i + 1650])
         f2 = np.zeros((1, 1650, 2048))
         f2[0] = f
 
