@@ -21,14 +21,15 @@ def write_bytesio_to_file(filename, bytesio):
 
 # Perform distance analysis of the video
 @st.cache_data
+#TODO change directly on the code
 def analyze_files(labels, video_name):
     return annotate_video(labels, video_name, "")
 
 
-mode = st.tabs(["Manual", "Automatic"])
+mode = st.tabs(["Manual", "Automatic", "New behaviours"])
 zip_name = "results"
 
-# First page, manual
+# First page, Manual
 with mode[0]:
     st.title("Manual Mode")
     st.markdown(
@@ -36,8 +37,7 @@ with mode[0]:
 
     st.markdown("You can choose between the behaviours you want to consider: ")
     grooming_manual = st.checkbox("Grooming", key='grooming_manual')
-    mid_rearing_manual = st.checkbox("Mid rearing ", key='mid_rearing_manual')
-    wall_rearing_manual = st.checkbox("Wall rearing ", key='wall_rearing_manual')
+    rearing_manual = st.checkbox("Rearing ", key='mid_rearing')
 
     uploaded_csvs_manual = st.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True,
                                             key="manualcsv")
@@ -47,90 +47,104 @@ with mode[0]:
     with st.sidebar:
         time_unit_manual = st.radio("Choose display unit", ("seconds", "frames"), key="manualradio")
 
-    video_names_manual = set()
+    video_names_manual = set() # Set to save uploaded videos' names
 
-    for uploaded_video in uploaded_videos_manual:
-        write_bytesio_to_file(uploaded_video.name, uploaded_video)
-        video_names_manual.add(uploaded_video.name[:-4] + ".mp4")
+    # Check uploaded videos
+    if len(uploaded_videos_manual) > 0:
+        for uploaded_video in uploaded_videos_manual:
+            write_bytesio_to_file(uploaded_video.name, uploaded_video) #Convert mp4 videos to bytes
+            video_names_manual.add(uploaded_video.name[:-4] + ".mp4") #Save videos' names`
+    else:
+        st.write("No mp4 videos have been uploaded yet")
 
+    # Check uploaded csvs
     if len(uploaded_csvs_manual) > 0:
-        tab_names_manual_manual = []
+        tab_names_manual = []
 
+        # Get each uploaded csv
         for ind, uploaded_csv in enumerate(uploaded_csvs_manual):
-            tab_names_manual_manual.append(uploaded_csv.name[:-4])
+            tab_names_manual.append(uploaded_csv.name[:-4])
 
+        # Check if they correspond to a video
         does_match_manual = True
-        for csv_name in tab_names_manual_manual:
+        for csv_name in tab_names_manual:
             corresponding_video_name = csv_name.split("_")[2] + ".mp4"
             if corresponding_video_name not in video_names_manual or len(uploaded_csvs_manual) != len(
                     uploaded_videos_manual):
-                st.write("Make sure that each video has a corresponding .csv file and vice-versa")
+                st.write("Make sure that each mp4 video has a corresponding .csv file and vice-versa")
                 does_match_manual = False
                 break
 
+        # In case all videos have their corresponding csv
         if does_match_manual:
-            z_manual = zipfile.ZipFile(f"{zip_name}.zip", mode="w")
 
-            matrix = []
-
-            for uploaded_csv in uploaded_csvs_manual:
-                write_bytesio_to_file(uploaded_csv.name, uploaded_csv)
-                z_manual.write(uploaded_csv.name)
-
-            tabs = st.tabs(tab_names_manual_manual)
-
+            # Check if any behaviour cehckbox is marked
             # From the checkboxes, get the behaviours the user wants to predict
             behaviours_manual = []
             if grooming_manual:
                 behaviours_manual.append("Grooming")
-            if mid_rearing_manual:
-                behaviours_manual.append("Rearing mig")
-            if wall_rearing_manual:
-                behaviours_manual.append("Rearing paret")
+            if rearing_manual:
+                behaviours_manual.append("Rearing")
 
-            for index, tab in enumerate(tabs):
-                with tab:
-                    df = pd.read_csv(uploaded_csvs_manual[index])
+            if len(behaviours_manual) <= 0:
+                st.write("At least one behaviour must be selected.")
+            else:
+                # Create a zip for the results
+                z_manual = zipfile.ZipFile(f"{zip_name}.zip", mode="w")
 
-                    labels, distances, results = analyze_df(df, df[behaviours_manual])
+                matrix = [] # TODO revisar para que sirve
 
-                    video_name = uploaded_csvs_manual[index].name.split("_")[2][:-4] + ".mp4"
-                    fps = analyze_files(labels, video_name)
+                # TODO mirar de borrar esto
+                '''for uploaded_csv in uploaded_csvs_manual:
+                #    write_bytesio_to_file(uploaded_csv.name, uploaded_csv)
+                #    z_manual.write(uploaded_csv.name)
+                '''
+                # Open one yab for each video
+                tabs = st.tabs(tab_names_manual)
 
-                    distances['seconds'] = distances['frames'].map(lambda x: x / fps)
+                # Process each video
+                for index, tab in enumerate(tabs):
+                    with tab:
+                        df = pd.read_csv(uploaded_csvs_manual[index])
 
-                    st.write("fps: ", fps)
-                    z_manual.write("out_" + video_name)
+                        try:
+                            # Get tags for the video frames and distances data
+                            labels, distances = analyze_df_labeled(df, behaviours_manual)
+                        except:
+                            st.write("The provied csv doesn't have a proper named column with the labels")
+                            # Jump to the following video
+                            continue
 
-                    video_file = open("out_" + video_name, 'rb')
-                    st.video(video_file)
+                        # Get name for the new tagged video
+                        video_name = uploaded_csvs_manual[index].name.split("_")[2][:-4] + ".mp4"
+                        # Annotate the video and get its frames per second
+                        fps = analyze_files(labels, video_name)
 
-                    st.write('Horizontal distance traveled over time')
-                    st.line_chart(distances[[time_unit_manual, 'd_x']], x=time_unit_manual)
+                        distances['seconds'] = distances['frames'].map(lambda x: x / fps)
 
-                    st.write('Vertical distance traveled over time')
-                    st.line_chart(distances[[time_unit_manual, 'd_y']], x=time_unit_manual)
+                        st.write("fps: ", fps)
+                        z_manual.write("out_" + video_name)
 
-                    st.write('Total distance traveled over time')
-                    st.line_chart(distances[[time_unit_manual, 'd_t']], x=time_unit_manual)
+                        video_file = open("out_" + video_name, 'rb')
+                        st.video(video_file)
 
-                    st.write('Cumulative horizontal distance traveled over time')
-                    st.line_chart(distances[[time_unit_manual, 'cd_x']], x=time_unit_manual)
+                        st.write('Cumulative horizontal distance traveled over time')
+                        st.line_chart(distances[[time_unit_manual, 'x']], x=time_unit_manual)
 
-                    st.write('Cumulative vertical distance traveled over time')
-                    st.line_chart(distances[[time_unit_manual, 'cd_y']], x=time_unit_manual)
+                        st.write('Cumulative vertical distance traveled over time')
+                        st.line_chart(distances[[time_unit_manual, 'y']], x=time_unit_manual)
 
-                    st.write('Cumulative total distance traveled over time')
-                    st.line_chart(distances[[time_unit_manual, 'cd_t']], x=time_unit_manual)
+                        st.write('Cumulative total distance traveled over time')
+                        st.line_chart(distances[[time_unit_manual, 'total']], x=time_unit_manual)
 
-            ### CREATE SUMMARY CSV HERE ###
-            distances.to_csv("distance_" + video_name[:-4] + ".csv", index=False)
-            z_manual.write("distance_" + video_name[:-4] + ".csv")
-            z_manual.close()
+                ### CREATE SUMMARY CSV HERE ###
+                distances.to_csv("distance_" + video_name[:-4] + ".csv", index=False)
+                z_manual.write("distance_" + video_name[:-4] + ".csv")
+                z_manual.close()
 
-            with open(f"{zip_name}.zip", "rb") as fp:
-                btn = st.download_button(label="Download results", data=fp, file_name=f"{zip_name}.zip",
-                                         mime="application/zip")
+                with open(f"{zip_name}.zip", "rb") as fp:
+                    btn = st.download_button(label="Download results", data=fp, file_name=f"{zip_name}.zip",
+                                             mime="application/zip")
 
 # Second page, automatic
 with (mode[1]):
