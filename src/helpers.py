@@ -79,7 +79,7 @@ def analyze_df_labeled(df, behaviours):
         if len(g_indx) <= 0:
             return -1
         df.columns.values[g_indx] = "Grooming"
-    elif 'Rearing' in behaviours:
+    if 'Rearing' in behaviours:
         r_indx = np.argwhere(np.isin(df.columns, rearing)).flatten()
         if len(r_indx) <= 0:
             return -1

@@ -99,7 +99,7 @@ with mode[0]:
                 #    write_bytesio_to_file(uploaded_csv.name, uploaded_csv)
                 #    z_manual.write(uploaded_csv.name)
                 '''
-                # Open one yab for each video
+                # Open one tab for each video
                 tabs = st.tabs(tab_names_manual)
 
                 # Process each video
@@ -122,20 +122,40 @@ with mode[0]:
 
                         distances['seconds'] = distances['frames'].map(lambda x: x / fps)
 
+                        # Create a data frame to store behaviour over time
+                        actions_manual = pd.DataFrame()
+                        actions_manual['frames'] = distances['frames']
+                        actions_manual['seconds'] = distances['frames']
+
                         st.write("fps: ", fps)
                         z_manual.write("out_" + video_name)
 
                         video_file = open("out_" + video_name, 'rb')
                         st.video(video_file)
 
-                        st.write('Cumulative horizontal distance traveled over time')
-                        st.line_chart(distances[[time_unit_manual, 'x']], x=time_unit_manual)
+                        # Create one tab for behaviour graphics and one for distance ones
+                        tabs_graphics = st.tabs(['Distances visualization', 'Behaviours visualization'])
 
-                        st.write('Cumulative vertical distance traveled over time')
-                        st.line_chart(distances[[time_unit_manual, 'y']], x=time_unit_manual)
+                        with tabs_graphics[0]:
+                            st.write('Cumulative horizontal distance traveled over time')
+                            st.line_chart(distances[[time_unit_manual, 'x']], x=time_unit_manual)
 
-                        st.write('Cumulative total distance traveled over time')
-                        st.line_chart(distances[[time_unit_manual, 'total']], x=time_unit_manual)
+                            st.write('Cumulative vertical distance traveled over time')
+                            st.line_chart(distances[[time_unit_manual, 'y']], x=time_unit_manual)
+
+                            st.write('Cumulative total distance traveled over time')
+                            st.line_chart(distances[[time_unit_manual, 'total']], x=time_unit_manual)
+
+                        with tabs_graphics[1]:
+                            if 'Grooming' in behaviours_manual:
+                                actions_manual['Grooming'] = list(map(lambda x:1 if x == 'Grooming' else 0, labels))
+                                st.write('Grooming over time')
+                                st.line_chart(actions_manual[[time_unit_manual, 'Grooming']], x=time_unit_manual)
+
+                            if 'Rearing' in behaviours_manual:
+                                actions_manual['Rearing'] = list(map(lambda x:1 if x == 'Rearing' else 0, labels))
+                                st.write('Rearing over time')
+                                st.line_chart(actions_manual[[time_unit_manual, 'Rearing']], x=time_unit_manual)
 
                 ### CREATE SUMMARY CSV HERE ###
                 distances.to_csv("distance_" + video_name[:-4] + ".csv", index=False)
