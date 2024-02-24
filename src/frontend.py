@@ -1,8 +1,9 @@
 import streamlit as st
 from helpers import *
 from model import *
+from video_processing import *
 import zipfile
-
+import time
 # os.system('pip install -r requirements.txt')
 
 # Define applications title
@@ -20,8 +21,7 @@ def write_bytesio_to_file(filename, bytesio):
         outfile.write(bytesio.getbuffer())
 
 # Perform distance analysis of the video
-@st.cache_data
-#TODO change directly on the code
+#@st.cache_data
 def analyze_files(labels, video_name):
     return annotate_video(labels, video_name, "")
 
@@ -37,12 +37,16 @@ with mode[0]:
 
     st.markdown("You can choose between the behaviours you want to consider: ")
     grooming_manual = st.checkbox("Grooming", key='grooming_manual')
-    rearing_manual = st.checkbox("Rearing ", key='mid_rearing')
+    rearing_manual = st.checkbox("Rearing ", key='rearing_manual')
+
+    st.title("\n")
 
     uploaded_csvs_manual = st.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True,
                                             key="manualcsv")
     uploaded_videos_manual = st.file_uploader("Upload Video files", type=["mp4"], accept_multiple_files=True,
-                                              key="manualvideos")
+                                             key="manualvideos")
+
+    st.title("\n")
 
     with st.sidebar:
         time_unit_manual = st.radio("Choose display unit", ("seconds", "frames"), key="manualradio")
@@ -78,7 +82,7 @@ with mode[0]:
         # In case all videos have their corresponding csv
         if does_match_manual:
 
-            # Check if any behaviour cehckbox is marked
+            # Check if any behaviour checkbox is marked
             # From the checkboxes, get the behaviours the user wants to predict
             behaviours_manual = []
             if grooming_manual:
@@ -92,13 +96,11 @@ with mode[0]:
                 # Create a zip for the results
                 z_manual = zipfile.ZipFile(f"{zip_name}.zip", mode="w")
 
-                matrix = [] # TODO revisar para que sirve
-
                 # TODO mirar de borrar esto
-                '''for uploaded_csv in uploaded_csvs_manual:
-                #    write_bytesio_to_file(uploaded_csv.name, uploaded_csv)
-                #    z_manual.write(uploaded_csv.name)
-                '''
+                #for uploaded_csv in uploaded_csvs_manual:
+                #write_bytesio_to_file(uploaded_csv.name, uploaded_csv)
+                #z_manual.write(uploaded_csv.name)
+
                 # Open one tab for each video
                 tabs = st.tabs(tab_names_manual)
 
@@ -106,20 +108,27 @@ with mode[0]:
                 for index, tab in enumerate(tabs):
                     with tab:
                         df = pd.read_csv(uploaded_csvs_manual[index])
+                        # Create a progress bar so the user recives a feedback
+                        progress_manual = "Operation in progress. Please wait."
+                        bar_manual = st.progress(0, text=progress_manual)
 
                         try:
+                            bar_manual.progress(40, text='Calculating distances')
                             # Get tags for the video frames and distances data
                             labels, distances = analyze_df_labeled(df, behaviours_manual)
                         except:
                             st.write("The provied csv doesn't have a proper named column with the labels")
+                            bar_manual.empty()
                             # Jump to the following video
                             continue
 
                         # Get name for the new tagged video
+                        bar_manual.progress(70, text='Tagging video')
                         video_name = uploaded_csvs_manual[index].name.split("_")[2][:-4] + ".mp4"
                         # Annotate the video and get its frames per second
                         fps = analyze_files(labels, video_name)
 
+                        bar_manual.progress(90, text='Creating plots')
                         distances['seconds'] = distances['frames'].map(lambda x: x / fps)
 
                         # Create a data frame to store behaviour over time
@@ -157,9 +166,15 @@ with mode[0]:
                                 st.write('Rearing over time')
                                 st.line_chart(actions_manual[[time_unit_manual, 'Rearing']], x=time_unit_manual)
 
+                        bar_manual.progress(100, text='Video analysis has been completed!')
+                        time.sleep(0.1)
+                        bar_manual.empty()
+
+
                 ### CREATE SUMMARY CSV HERE ###
-                distances.to_csv("distance_" + video_name[:-4] + ".csv", index=False)
-                z_manual.write("distance_" + video_name[:-4] + ".csv")
+                #TODO mirar de borrar aquesta linea
+                #distances.to_csv("distance_" + video_name[:-4] + ".csv", index=False)
+                #z_manual.write("distance_" + video_name[:-4] + ".csv")
                 z_manual.close()
 
                 with open(f"{zip_name}.zip", "rb") as fp:
@@ -172,74 +187,81 @@ with (mode[1]):
     # Define all frontend components for Automatic tab
     st.title("Automatic Mode")
     st.markdown(
-        "In automatic mode you can upload videos with their corresponding unlabeled DeepLabCut csv files and you will automatically get them labeled.")
+        "In automatic mode, you can upload videos and you will automatically get them labeled.")
 
     st.markdown("You can choose between the behaviours you want to consider: ")
     grooming_automatic = st.checkbox("Grooming", key='grooming_automatic')
-    mid_rearing_automatic = st.checkbox("Mid rearing ", key='mid_rearing_automatic')
-    wall_rearing_automatic = st.checkbox("Wall rearing ", key='wall_rearing_automatic')
+    rearing_automatic = st.checkbox("Rearing ", key='rearing_automatic')
 
     st.title("\n")
 
-    uploaded_csvs = st.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
     uploaded_videos = st.file_uploader("Upload Video files", type=["mp4"], accept_multiple_files=True)
 
     st.title("\n")
 
     with st.sidebar:
-        time_unit = st.radio("Choose display unit", ("seconds", "frames"))
+        time_unit = st.radio("Choose display unit", ("seconds", "frames"), key="automaticradio")
 
-    # Process imputed data by the user
-    video_names = set()  # Variable where we will save all the uploaded videos
-    does_match = True  # Boolean variable to know if the uploaded data is correct
+    video_names = set()  # Set to save uploaded videos' names
+    does_match = False
 
     # Check uploaded videos
-    for uploaded_video in uploaded_videos:
-        write_bytesio_to_file(uploaded_video.name, uploaded_video)  # Add video to video buffer in bytes
-        video_names.add(uploaded_video.name[:-4] + ".mp4")  # Add video's names to a set of all names
-
-    # Check uploaded behaviours
-    # From the checkboxes, get the behaviours the user wants to predict
-    behaviours = []
-    if grooming_automatic:
-        behaviours.append("grooming")
-    if mid_rearing_automatic:
-        behaviours.append("mid_rearing")
-    if wall_rearing_automatic:
-        behaviours.append("wall_rearing")
-    # If there are not selected behaviours, return an error message
-    if len(behaviours) == 0:
-        st.write("Make sure you select at least one behaviour to analyze.")
-        does_match = False
-
-    # Check uploaded csvs
-    if len(uploaded_csvs) > 0:
-        tab_names = []  # List of csv files names
-        for ind, uploaded_csv in enumerate(uploaded_csvs):
-            tab_names.append(uploaded_csv.name[:-4])
-        # Check if for each uploaded video there is a corresponding csv
-        for csv_name in tab_names:
-            corresponding_video_name = csv_name.split("_")[2] + ".mp4"
-            if corresponding_video_name not in video_names or len(uploaded_csvs) != len(uploaded_videos):
-                st.write("Make sure that each video has a corresponding .csv file and vice-versa.")
-                does_match = False
+    if len(uploaded_videos) > 0:
+        for uploaded_video in uploaded_videos:
+            write_bytesio_to_file(uploaded_video.name, uploaded_video)  # Convert mp4 videos to bytes
+            video_names.add(uploaded_video.name[:-4] + ".mp4")  # Save videos' names`
+            does_match = True
     else:
-        st.write("You haven't upload any videos yet!")
-        does_match = False
+        st.write("No mp4 videos have been uploaded yet")
 
-    # If all videos have their corresponding csv, we can process them and generate the results
+    # If there are any videos uploaded, we can process them and generate the results
     if does_match:
 
-        # Create the zip file where we will save the results
-        z = zipfile.ZipFile(f"{zip_name}.zip", mode="w")
+        # Check if any behaviour checkbox is marked
+        # From the checkboxes, get the behaviours the user wants to predict
+        behaviours = []
+        if grooming_automatic:
+                behaviours.append("Grooming")
+        if rearing_automatic:
+                behaviours.append("Rearing")
 
-        for uploaded_csv in uploaded_csvs:
-            write_bytesio_to_file(uploaded_csv.name, uploaded_csv)  # Add csv to video cav in bytes
-        #    z.write(uploaded_csv.name)
+        if len(behaviours) <= 0:
+                st.write("At least one behaviour must be selected.")
 
-        # For each uploaded video we create a tab for its results
-        tabs = st.tabs(tab_names)
+        # If everything is in order, we can start processing the videos
+        else:
+            # Create a zip for the results
+            z = zipfile.ZipFile(f"{zip_name}.zip", mode="w")
 
+            # Open one tab for each video
+            tabs_auto = st.tabs(video_names)
+
+            # Process each video
+            for index, tab in enumerate(tabs_auto):
+                with tab:
+                    # Create a progress bar so the user recives a feedback
+                    progress_manual = "Operation in progress. Please wait."
+                    bar_manual = st.progress(0, text=progress_manual)
+
+                    # Preprocess the video
+                    progress_manual = "Preprocessing the video, getting mouse position."
+                    bar_manual = st.progress(20, text=progress_manual)
+                    frames, positions = pos_video(video_name, "",expansion=80, fps=10)
+
+                    # Predict behaviours at each frame
+                    progress_manual = "Model predicting beheaviours at each frame."
+                    bar_manual = st.progress(50, text=progress_manual)
+                    results = predict_video(frames, behaviours)
+                    print(results)
+
+
+
+
+
+
+
+
+'''
         # Get results for each video
         for index, tab in enumerate(tabs):
             with tab:
@@ -294,3 +316,4 @@ with (mode[1]):
         with open(f"{zip_name}.zip", "rb") as fp:
             btn = st.download_button(label="Download results", key='download_manual', data=fp,
                                      file_name=f"{zip_name}.zip", mime="application/zip")
+'''
