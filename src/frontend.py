@@ -115,7 +115,7 @@ with mode[0]:
                         try:
                             bar_manual.progress(40, text='Calculating distances')
                             # Get tags for the video frames and distances data
-                            labels, distances = analyze_df_labeled(df, behaviours_manual)
+                            labels_manual, distances_manual = analyze_df_labeled(df, behaviours_manual)
                         except:
                             st.write("The provied csv doesn't have a proper named column with the labels")
                             bar_manual.empty()
@@ -126,17 +126,17 @@ with mode[0]:
                         bar_manual.progress(70, text='Tagging video')
                         video_name = uploaded_csvs_manual[index].name.split("_")[2][:-4] + ".mp4"
                         # Annotate the video and get its frames per second
-                        fps = analyze_files(labels, video_name)
+                        fps_manual = analyze_files(labels_manual, video_name)
 
                         bar_manual.progress(90, text='Creating plots')
-                        distances['seconds'] = distances['frames'].map(lambda x: x / fps)
+                        distances_manual['seconds'] = distances_manual['frames'].map(lambda x: x / fps_manual)
 
                         # Create a data frame to store behaviour over time
                         actions_manual = pd.DataFrame()
-                        actions_manual['frames'] = distances['frames']
-                        actions_manual['seconds'] = distances['frames']
+                        actions_manual['frames'] = distances_manual['frames']
+                        actions_manual['seconds'] = distances_manual['frames']
 
-                        st.write("fps: ", fps)
+                        st.write("fps: ", fps_manual)
                         z_manual.write("out_" + video_name)
 
                         video_file = open("out_" + video_name, 'rb')
@@ -147,22 +147,22 @@ with mode[0]:
 
                         with tabs_graphics[0]:
                             st.write('Cumulative horizontal distance traveled over time')
-                            st.line_chart(distances[[time_unit_manual, 'x']], x=time_unit_manual)
+                            st.line_chart(distances_manual[[time_unit_manual, 'x']], x=time_unit_manual)
 
                             st.write('Cumulative vertical distance traveled over time')
-                            st.line_chart(distances[[time_unit_manual, 'y']], x=time_unit_manual)
+                            st.line_chart(distances_manual[[time_unit_manual, 'y']], x=time_unit_manual)
 
                             st.write('Cumulative total distance traveled over time')
-                            st.line_chart(distances[[time_unit_manual, 'total']], x=time_unit_manual)
+                            st.line_chart(distances_manual[[time_unit_manual, 'total']], x=time_unit_manual)
 
                         with tabs_graphics[1]:
                             if 'Grooming' in behaviours_manual:
-                                actions_manual['Grooming'] = list(map(lambda x:1 if x == 'Grooming' else 0, labels))
+                                actions_manual['Grooming'] = list(map(lambda x:1 if x == 'Grooming' else 0, labels_manual))
                                 st.write('Grooming over time')
                                 st.line_chart(actions_manual[[time_unit_manual, 'Grooming']], x=time_unit_manual)
 
                             if 'Rearing' in behaviours_manual:
-                                actions_manual['Rearing'] = list(map(lambda x:1 if x == 'Rearing' else 0, labels))
+                                actions_manual['Rearing'] = list(map(lambda x:1 if x == 'Rearing' else 0, labels_manual))
                                 st.write('Rearing over time')
                                 st.line_chart(actions_manual[[time_unit_manual, 'Rearing']], x=time_unit_manual)
 
@@ -235,85 +235,78 @@ with (mode[1]):
 
             # Open one tab for each video
             tabs_auto = st.tabs(video_names)
+            names= list(video_names)
 
             # Process each video
             for index, tab in enumerate(tabs_auto):
                 with tab:
+                    video_name_auto = names[index]
                     # Create a progress bar so the user recives a feedback
-                    progress_manual = "Operation in progress. Please wait."
-                    bar_manual = st.progress(0, text=progress_manual)
+                    progress = "Operation in progress. Please wait."
+                    bar = st.progress(0, text=progress)
 
                     # Preprocess the video
-                    progress_manual = "Preprocessing the video, getting mouse position."
-                    bar_manual = st.progress(20, text=progress_manual)
-                    frames, positions = pos_video(video_name, "",expansion=80, fps=10)
+                    bar.progress(20, text='Preprocessing the video, getting mouse position.')
+                    frames, positions = pos_video(video_name_auto, "",expansion=80, fps=10)
 
                     # Predict behaviours at each frame
-                    progress_manual = "Model predicting beheaviours at each frame."
-                    bar_manual = st.progress(50, text=progress_manual)
+                    bar.progress(40, text='Model predicting beheaviours at each frame.')
                     results = predict_video(frames, behaviours)
-                    print(results)
+
+                    # Get tags for the video frames and distances data
+                    bar.progress(70, text='Calculating distances')
+                    labels, distances = analyze_df_labeled(pd.concat([results,positions], axis=1), behaviours)
+
+                    # Get name for the new tagged video
+                    bar.progress(80, text='Tagging video')
+                    # Annotate the video and get its frames per second
+                    fps = annotate_video(labels, video_name_auto, "", fps=10)
+
+                    bar.progress(90, text='Creating plots')
+                    distances['seconds'] = distances['frames'].map(lambda x: x / fps)
+
+                    # Create a data frame to store behaviour over time
+                    actions = pd.DataFrame()
+                    actions['frames'] = distances['frames']
+                    actions['seconds'] = distances['frames']
+
+                    st.write("fps: ", fps)
+                    z.write("out_" + video_name_auto)
+
+                    video_file = open("out_" + video_name_auto, 'rb')
+                    st.video(video_file)
+
+                    # Create one tab for behaviour graphics and one for distance ones
+                    tabs_graphics = st.tabs(['Distances visualization', 'Behaviours visualization'])
+
+                    with tabs_graphics[0]:
+                        st.write('Cumulative horizontal distance traveled over time')
+                        st.line_chart(distances[[time_unit, 'x']], x=time_unit)
+
+                        st.write('Cumulative vertical distance traveled over time')
+                        st.line_chart(distances[[time_unit, 'y']], x=time_unit)
+
+                        st.write('Cumulative total distance traveled over time')
+                        st.line_chart(distances[[time_unit, 'total']], x=time_unit)
+
+                    with tabs_graphics[1]:
+                        if 'Grooming' in behaviours:
+                            actions['Grooming'] = list(map(lambda x: 1 if x == 'Grooming' else 0, labels))
+                            st.write('Grooming over time')
+                            st.line_chart(actions[[time_unit, 'Grooming']], x=time_unit)
+
+                        if 'Rearing' in behaviours:
+                            actions['Rearing'] = list(map(lambda x: 1 if x == 'Rearing' else 0, labels))
+                            st.write('Rearing over time')
+                            st.line_chart(actions[[time_unit, 'Rearing']], x=time_unit)
+
+                    bar.progress(100, text='Video analysis has been completed!')
+                    time.sleep(0.1)
+                    bar.empty()
+
+            z.close()
+            with open(f"{zip_name}.zip", "rb") as fp:
+                btn = st.download_button(label="Download results", data=fp, file_name=f"{zip_name}.zip",
+                                         mime="application/zip")
 
 
-
-
-
-
-
-
-'''
-        # Get results for each video
-        for index, tab in enumerate(tabs):
-            with tab:
-                # Get name of the video that will get analyzed
-                video_name = uploaded_csvs[index].name.split("_")[2][:-4] + ".mp4"
-                # Create data frame from video's csv
-                df = pd.read_csv(uploaded_csvs[index])
-
-                # Pass to the model the video and the csv and obtain prediction
-                results = classify_video(df, video_name, "", behaviours)
-                # Post-process results
-                labels, distances, results = analyze_df(df, results)
-                # Label video and get video rates
-                fps = analyze_files(labels, video_name)
-
-                distances['seconds'] = distances['frames'].map(lambda x: x / fps)
-
-                st.write("Frames per second: ", fps)
-                z.write("out_" + video_name)
-
-                video_file = open("out_" + video_name, 'rb')
-
-                st.video(video_file)
-
-                st.write('Horizontal distance traveled over time')
-                st.line_chart(distances[[time_unit, 'd_x']], x=time_unit)
-
-                st.write('Vertical distance traveled over time')
-                st.line_chart(distances[[time_unit, 'd_y']], x=time_unit)
-
-                st.write('Total distance traveled over time')
-                st.line_chart(distances[[time_unit, 'd_t']], x=time_unit)
-
-                st.write('Cumulative horizontal distance traveled over time')
-                st.line_chart(distances[[time_unit, 'cd_x']], x=time_unit)
-
-                st.write('Cumulative vertical distance traveled over time')
-                st.line_chart(distances[[time_unit, 'cd_y']], x=time_unit)
-
-                st.write('Cumulative total distance traveled over time')
-                st.line_chart(distances[[time_unit, 'cd_t']], x=time_unit)
-
-        ### CREATE SUMMARY CSV HERE ###
-        distances.to_csv("distance_" + video_name[:-4] + ".csv", index=False)
-        results.to_csv("results" + video_name[:-4] + ".csv", index=False)
-
-        z.write("distance_" + video_name[:-4] + ".csv")
-        z.write("results" + video_name[:-4] + ".csv")
-
-        z.close()
-
-        with open(f"{zip_name}.zip", "rb") as fp:
-            btn = st.download_button(label="Download results", key='download_manual', data=fp,
-                                     file_name=f"{zip_name}.zip", mime="application/zip")
-'''

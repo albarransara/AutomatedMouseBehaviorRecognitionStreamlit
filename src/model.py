@@ -11,7 +11,6 @@ def feature_extraction(frames):
 
     for frame in frames:
         frame = tf.convert_to_tensor(frame)
-        #frame = tf.image.decode_image(frame, channels=3)
         frame = tf.image.convert_image_dtype(frame, tf.float32)
         features.append(feature_extractor(frame))
 
@@ -26,33 +25,25 @@ def predict_video(features, behaviours):
     grooming = []
     rearing = []
 
-    # Start processing data by batches
+    # Start processing frames by batches
     for i in range(0, len(features), 300):
         print('Batch ', i)
 
-        f = feature_extraction(features[i: i + 300])
-        f2 = np.zeros((1, 300, 2048))
-        f2[0] = f
+        f = feature_extraction(features[i: i + 300])[None]
 
         # Get the result for each wanted behaviour
-        if "grooming" in behaviours:
+        if "Grooming" in behaviours:
             # Load grooming model
             model = tf.keras.models.load_model('resnet_lstm_accuracy_grooming.h5')
-            grooming.append(model.predict(f2))
-        if "mid_rearing" in behaviours:
+            grooming.append(model.predict(f))
+        if "Rearing" in behaviours:
             # Load grooming model
-            model = tf.keras.models.load_model('resnet_lstm_accuracy_mid_rearing.h5')
-            mid_rearing.append(model.predict(f2))
-        if "wall_rearing" in behaviours:
-            # Load grooming model
-            model = tf.keras.models.load_model('resnet_lstm_accuracy_wall_rearing.h5')
-            wall_rearing.append(model.predict(f2))
+            model = tf.keras.models.load_model('resnet_lstm_accuracy_rearing.h5')
+            rearing.append(model.predict(f))
 
     # Generate dataframes with the results
-    if "grooming" in behaviours:
-        results['grooming'] = list(np.concatenate(grooming[:]).flat)
-    if "mid_rearing" in behaviours:
-        results['mid_rearing'] = list(np.concatenate(mid_rearing[:]).flat)
-    if "wall_rearing" in behaviours:
-        results['wall_rearing'] = list(np.concatenate(wall_rearing[:]).flat)
+    if "Grooming" in behaviours:
+        results['Grooming'] = list(np.concatenate(grooming[:]).flat)
+    if "Rearing" in behaviours:
+        results['Rearing'] = list(np.concatenate(rearing[:]).flat)
     return results
