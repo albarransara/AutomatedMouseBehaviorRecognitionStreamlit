@@ -32,6 +32,11 @@ def analyze_df_labeled(df, behaviours):
                             "Possible name, they can have capital letters, are: 'grooming', 'g'")
         df.columns.values[r_indx] = "Rearing"
 
+
+    # We will set a threshold
+    df.Grooming[df.Grooming < 0.5] = 0
+    df.Rearing[df.Rearing < 0.5] = 0
+
     # Now that we have the indexes we will extract the labels for the video tagging
     labels = df.iloc[:,list(chain.from_iterable([g_indx, r_indx]))]
     for ind, row in labels.iterrows():
