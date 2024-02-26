@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from backboneResNet import FeatureExtractor
+import os
+
+script_directory = os.path.dirname(os.path.abspath(__file__))
 
 # Extract features through the Backbone model
 def feature_extraction(frames):
@@ -36,9 +39,9 @@ def predict_video(features, behaviours):
 
         # Get the result for each wanted behaviour
         if "Grooming" in behaviours:
-            # Load grooming model
             try:
-                model = tf.keras.models.load_model('resnet_lstm_accuracy_grooming.h5')
+                # Load grooming model
+                model = tf.keras.models.load_model(os.path.join(script_directory, "resnet_lstm_accuracy_grooming.h5"))
                 grooming.append(model.predict(f))
             except:
                 raise Exception("A problem occurred while predicting the video. Grooming model could not predict.")
@@ -46,7 +49,7 @@ def predict_video(features, behaviours):
         if "Rearing" in behaviours:
             try:
                 # Load grooming model
-                model = tf.keras.models.load_model('resnet_lstm_accuracy_rearing.h5')
+                model = tf.keras.models.load_model(os.path.join(script_directory, "resnet_lstm_accuracy_rearing.h5"))
                 rearing.append(model.predict(f))
             except:
                 raise Exception("A problem occurred while predicting the video. Rearing model could not predict.")

@@ -299,7 +299,7 @@ with (mode[1]):
                     except Exception as e:
                         st.write('An error occurred during the video processing')
                         st.write(e)
-                        bar_manual.empty()
+                        bar.empty()
 
             z.close()
             with open(f"{zip_name}.zip", "rb") as fp:

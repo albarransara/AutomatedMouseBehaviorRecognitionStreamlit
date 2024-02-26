@@ -1,0 +1,63 @@
+#FROM tensorflow/tensorflow:latest
+FROM nvcr.io/nvidia/rapidsai/rapidsai:23.06-cuda11.8-runtime-ubuntu22.04-py3.10
+
+USER root
+
+# set working directory
+WORKDIR /app
+
+RUN python3 -m pip install --upgrade pip
+
+COPY ./src/requirements.txt /app/requirements.txt
+
+# Install requirement 
+RUN pip install -r /app/requirements.txt --no-cache-dir
+
+COPY src/ /app/src/
+
+# For tensorflow 2 to run on gpu, cudnn and cudatoolkit must be installed.
+# Moreover, the versions of cudnn and cudatoolkit must be compatible with the drivers of the gpu you are using
+RUN apt install -y software-properties-common
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin && \
+mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
+apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub && \
+add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /" && \
+apt-get update && \
+apt-get install -y libcudnn8 && \
+apt-get install -y libcudnn8-dev && \
+apt-get install -y kmod && \
+apt-get install -y nvidia-cuda-toolkit
+
+# download cudnn for Linux from official Nvidia site
+# refer https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html?ncid=em-prod-337416
+#COPY cudnn-local-repo-ubuntu2204-8.9.5.29_1.0-1_amd64.deb /var
+
+# install cudnn
+RUN dpkg -i /var/cudnn-local-repo-ubuntu2204-8.9.5.29_1.0-1_amd64.deb && \
+cp /var/cudnn-local-repo-ubuntu2204-8.9.5.29/cudnn-local-535C49CB-keyring.gpg /usr/share/keyrings/ && \
+apt-get update && \
+apt-get install -y libcudnn8=8.9.5.29-1+cuda11.8 --allow-downgrades && \
+apt-get install -y libcudnn8-dev=8.9.5.29-1+cuda11.8 --allow-downgrades && \
+apt-get install -y libcudnn8-samples=8.9.5.29-1+cuda11.8 --allow-downgrades && \
+export LIBRARY_PATH=/usr/lib/cuda/nvvm/libdevice:$LIBRARY_PATH && \
+export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda && \
+cd /root
+
+
+# setting up Cloud SDK
+RUN export CLOUD_SDK_REPO="cloud-sdk" \
+  && echo "deb http://packages.cloud.google.com/apt $CLOUD_SDK_REPO main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+  && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
+  && apt-get update \
+  && apt install -y \
+  google-cloud-sdk
+
+# Setting LIBRARY_PATH to include the path to the libdevice library is necessary for compiling CUDA code that uses the NVVM compiler
+ENV LIBRARY_PATH="/usr/lib/cuda/nvvm/libdevice:$LIBRARY_PATH"
+ENV XLA_FLAGS="--xla_gpu_cuda_data_dir=/usr/lib/cuda"
+
+# Open streamlit port
+EXPOSE 8501
+
+# Run Streamlit project
+CMD ["python3", "-m", "streamlit", "run", "./src/frontend.py"]

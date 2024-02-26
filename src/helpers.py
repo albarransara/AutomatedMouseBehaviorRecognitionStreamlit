@@ -25,17 +25,15 @@ def analyze_df_labeled(df, behaviours):
             raise Exception("Grooming doesn't have a propperly named column on the provided csv."
                             "Possible name, they can have capital letters, are: 'rearing mig', 'rearing paret', 'mid rearing', 'wall rearing', 'rearing', 'r', 'mr', 'wr'")
         df.columns.values[g_indx] = "Grooming"
+        df.Grooming[df.Grooming < 0.5] = 0
+
     if 'Rearing' in behaviours:
         r_indx = np.argwhere(np.isin(df.columns, rearing)).flatten()
         if len(r_indx) <= 0:
             raise Exception("Rearing doesn't have a propperly named column on the provided csv."
                             "Possible name, they can have capital letters, are: 'grooming', 'g'")
         df.columns.values[r_indx] = "Rearing"
-
-
-    # We will set a threshold
-    df.Grooming[df.Grooming < 0.5] = 0
-    df.Rearing[df.Rearing < 0.5] = 0
+        df.Rearing[df.Rearing < 0.5] = 0
 
     # Now that we have the indexes we will extract the labels for the video tagging
     labels = df.iloc[:,list(chain.from_iterable([g_indx, r_indx]))]

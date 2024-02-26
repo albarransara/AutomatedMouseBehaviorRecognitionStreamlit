@@ -1,4 +1,8 @@
+streamlit
 pandas
 opencv-python-headless
-tensorflow
+tensorflow[and-cuda]
+keras
 numpy
+python-math
+more-itertools
