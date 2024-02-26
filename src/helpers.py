@@ -1,5 +1,3 @@
-import math
-import pandas as pd
 import numpy as np
 import cv2
 from distances import *
@@ -24,12 +22,14 @@ def analyze_df_labeled(df, behaviours):
     if 'Grooming' in behaviours:
         g_indx = np.argwhere(np.isin(df.columns, grooming)).flatten()
         if len(g_indx) <= 0:
-            return -1
+            raise Exception("Grooming doesn't have a propperly named column on the provided csv."
+                            "Possible name, they can have capital letters, are: 'rearing mig', 'rearing paret', 'mid rearing', 'wall rearing', 'rearing', 'r', 'mr', 'wr'")
         df.columns.values[g_indx] = "Grooming"
     if 'Rearing' in behaviours:
         r_indx = np.argwhere(np.isin(df.columns, rearing)).flatten()
         if len(r_indx) <= 0:
-            return -1
+            raise Exception("Rearing doesn't have a propperly named column on the provided csv."
+                            "Possible name, they can have capital letters, are: 'grooming', 'g'")
         df.columns.values[r_indx] = "Rearing"
 
     # Now that we have the indexes we will extract the labels for the video tagging
@@ -40,7 +40,10 @@ def analyze_df_labeled(df, behaviours):
             actions[ind] = labels.columns[b_max]
 
     # Now caculate cumulative distances
-    distance_frame = distances_DLC(df)
+    try:
+        distance_frame = distances_DLC(df)
+    except:
+        raise Exception('Distances can not be properly calculated.')
 
     # Return processed results and new df containing distance data
     return (actions, distance_frame)
@@ -53,8 +56,7 @@ def annotate_video(labels,video_name,path_to_video, fps=None):
     cap = cv2.VideoCapture(path_to_video+video_name)
 
     if not cap.isOpened():
-        print("Unable to read camera feed")
-        # TODO return error
+        raise Exception("A problem occurred when tagging the video. Video couldn't be loaded.")
 
     # Get data from the video
     framespersecond= int(cap.get(cv2.CAP_PROP_FPS))

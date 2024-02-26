@@ -20,12 +20,6 @@ def write_bytesio_to_file(filename, bytesio):
         # Copy the BytesIO stream to the output file
         outfile.write(bytesio.getbuffer())
 
-# Perform distance analysis of the video
-#@st.cache_data
-def analyze_files(labels, video_name):
-    return annotate_video(labels, video_name, "")
-
-
 mode = st.tabs(["Manual", "Automatic", "New behaviours"])
 zip_name = "results"
 
@@ -116,60 +110,59 @@ with mode[0]:
                             bar_manual.progress(40, text='Calculating distances')
                             # Get tags for the video frames and distances data
                             labels_manual, distances_manual = analyze_df_labeled(df, behaviours_manual)
-                        except:
-                            st.write("The provied csv doesn't have a proper named column with the labels")
+
+                            # Get name for the new tagged video
+                            bar_manual.progress(70, text='Tagging video')
+                            video_name = uploaded_csvs_manual[index].name.split("_")[2][:-4] + ".mp4"
+                            # Annotate the video and get its frames per second
+                            fps_manual = annotate_video(labels_manual, video_name,"")
+
+                            bar_manual.progress(90, text='Creating plots')
+                            distances_manual['seconds'] = distances_manual['frames'].map(lambda x: x / fps_manual)
+
+                            # Create a data frame to store behaviour over time
+                            actions_manual = pd.DataFrame()
+                            actions_manual['frames'] = distances_manual['frames']
+                            actions_manual['seconds'] = distances_manual['frames']
+
+                            st.write("fps: ", fps_manual)
+                            z_manual.write("out_" + video_name)
+
+                            video_file = open("out_" + video_name, 'rb')
+                            st.video(video_file)
+
+                            # Create one tab for behaviour graphics and one for distance ones
+                            tabs_graphics = st.tabs(['Distances visualization', 'Behaviours visualization'])
+
+                            with tabs_graphics[0]:
+                                st.write('Cumulative horizontal distance traveled over time')
+                                st.line_chart(distances_manual[[time_unit_manual, 'x']], x=time_unit_manual)
+
+                                st.write('Cumulative vertical distance traveled over time')
+                                st.line_chart(distances_manual[[time_unit_manual, 'y']], x=time_unit_manual)
+
+                                st.write('Cumulative total distance traveled over time')
+                                st.line_chart(distances_manual[[time_unit_manual, 'total']], x=time_unit_manual)
+
+                            with tabs_graphics[1]:
+                                if 'Grooming' in behaviours_manual:
+                                    actions_manual['Grooming'] = list(map(lambda x:1 if x == 'Grooming' else 0, labels_manual))
+                                    st.write('Grooming over time')
+                                    st.line_chart(actions_manual[[time_unit_manual, 'Grooming']], x=time_unit_manual)
+
+                                if 'Rearing' in behaviours_manual:
+                                    actions_manual['Rearing'] = list(map(lambda x:1 if x == 'Rearing' else 0, labels_manual))
+                                    st.write('Rearing over time')
+                                    st.line_chart(actions_manual[[time_unit_manual, 'Rearing']], x=time_unit_manual)
+
+                            bar_manual.progress(100, text='Video analysis has been completed!')
+                            time.sleep(0.1)
                             bar_manual.empty()
-                            # Jump to the following video
-                            continue
 
-                        # Get name for the new tagged video
-                        bar_manual.progress(70, text='Tagging video')
-                        video_name = uploaded_csvs_manual[index].name.split("_")[2][:-4] + ".mp4"
-                        # Annotate the video and get its frames per second
-                        fps_manual = analyze_files(labels_manual, video_name)
-
-                        bar_manual.progress(90, text='Creating plots')
-                        distances_manual['seconds'] = distances_manual['frames'].map(lambda x: x / fps_manual)
-
-                        # Create a data frame to store behaviour over time
-                        actions_manual = pd.DataFrame()
-                        actions_manual['frames'] = distances_manual['frames']
-                        actions_manual['seconds'] = distances_manual['frames']
-
-                        st.write("fps: ", fps_manual)
-                        z_manual.write("out_" + video_name)
-
-                        video_file = open("out_" + video_name, 'rb')
-                        st.video(video_file)
-
-                        # Create one tab for behaviour graphics and one for distance ones
-                        tabs_graphics = st.tabs(['Distances visualization', 'Behaviours visualization'])
-
-                        with tabs_graphics[0]:
-                            st.write('Cumulative horizontal distance traveled over time')
-                            st.line_chart(distances_manual[[time_unit_manual, 'x']], x=time_unit_manual)
-
-                            st.write('Cumulative vertical distance traveled over time')
-                            st.line_chart(distances_manual[[time_unit_manual, 'y']], x=time_unit_manual)
-
-                            st.write('Cumulative total distance traveled over time')
-                            st.line_chart(distances_manual[[time_unit_manual, 'total']], x=time_unit_manual)
-
-                        with tabs_graphics[1]:
-                            if 'Grooming' in behaviours_manual:
-                                actions_manual['Grooming'] = list(map(lambda x:1 if x == 'Grooming' else 0, labels_manual))
-                                st.write('Grooming over time')
-                                st.line_chart(actions_manual[[time_unit_manual, 'Grooming']], x=time_unit_manual)
-
-                            if 'Rearing' in behaviours_manual:
-                                actions_manual['Rearing'] = list(map(lambda x:1 if x == 'Rearing' else 0, labels_manual))
-                                st.write('Rearing over time')
-                                st.line_chart(actions_manual[[time_unit_manual, 'Rearing']], x=time_unit_manual)
-
-                        bar_manual.progress(100, text='Video analysis has been completed!')
-                        time.sleep(0.1)
-                        bar_manual.empty()
-
+                        except Exception as e:
+                            st.write('An error occurred during the video processing')
+                            st.write(e)
+                            bar_manual.empty()
 
                 ### CREATE SUMMARY CSV HERE ###
                 #TODO mirar de borrar aquesta linea
@@ -216,7 +209,6 @@ with (mode[1]):
 
     # If there are any videos uploaded, we can process them and generate the results
     if does_match:
-
         # Check if any behaviour checkbox is marked
         # From the checkboxes, get the behaviours the user wants to predict
         behaviours = []
@@ -244,65 +236,70 @@ with (mode[1]):
                     # Create a progress bar so the user recives a feedback
                     progress = "Operation in progress. Please wait."
                     bar = st.progress(0, text=progress)
+                    try:
+                        # Preprocess the video
+                        bar.progress(20, text='Preprocessing the video, getting mouse position.')
+                        frames, positions = pos_video(video_name_auto, "",expansion=80, fps=10)
 
-                    # Preprocess the video
-                    bar.progress(20, text='Preprocessing the video, getting mouse position.')
-                    frames, positions = pos_video(video_name_auto, "",expansion=80, fps=10)
+                        # Predict behaviours at each frame
+                        bar.progress(40, text='Model predicting beheaviours at each frame.')
+                        results = predict_video(frames, behaviours)
 
-                    # Predict behaviours at each frame
-                    bar.progress(40, text='Model predicting beheaviours at each frame.')
-                    results = predict_video(frames, behaviours)
+                        # Get tags for the video frames and distances data
+                        bar.progress(70, text='Calculating distances')
+                        labels, distances = analyze_df_labeled(pd.concat([results,positions], axis=1), behaviours)
 
-                    # Get tags for the video frames and distances data
-                    bar.progress(70, text='Calculating distances')
-                    labels, distances = analyze_df_labeled(pd.concat([results,positions], axis=1), behaviours)
+                        # Get name for the new tagged video
+                        bar.progress(80, text='Tagging video')
+                        # Annotate the video and get its frames per second
+                        fps = annotate_video(labels, video_name_auto, "", fps=10)
 
-                    # Get name for the new tagged video
-                    bar.progress(80, text='Tagging video')
-                    # Annotate the video and get its frames per second
-                    fps = annotate_video(labels, video_name_auto, "", fps=10)
+                        bar.progress(90, text='Creating plots')
+                        distances['seconds'] = distances['frames'].map(lambda x: x / fps)
 
-                    bar.progress(90, text='Creating plots')
-                    distances['seconds'] = distances['frames'].map(lambda x: x / fps)
+                        # Create a data frame to store behaviour over time
+                        actions = pd.DataFrame()
+                        actions['frames'] = distances['frames']
+                        actions['seconds'] = distances['frames']
 
-                    # Create a data frame to store behaviour over time
-                    actions = pd.DataFrame()
-                    actions['frames'] = distances['frames']
-                    actions['seconds'] = distances['frames']
+                        st.write("fps: ", fps)
+                        z.write("out_" + video_name_auto)
 
-                    st.write("fps: ", fps)
-                    z.write("out_" + video_name_auto)
+                        video_file = open("out_" + video_name_auto, 'rb')
+                        st.video(video_file)
 
-                    video_file = open("out_" + video_name_auto, 'rb')
-                    st.video(video_file)
+                        # Create one tab for behaviour graphics and one for distance ones
+                        tabs_graphics = st.tabs(['Distances visualization', 'Behaviours visualization'])
 
-                    # Create one tab for behaviour graphics and one for distance ones
-                    tabs_graphics = st.tabs(['Distances visualization', 'Behaviours visualization'])
+                        with tabs_graphics[0]:
+                            st.write('Cumulative horizontal distance traveled over time')
+                            st.line_chart(distances[[time_unit, 'x']], x=time_unit)
 
-                    with tabs_graphics[0]:
-                        st.write('Cumulative horizontal distance traveled over time')
-                        st.line_chart(distances[[time_unit, 'x']], x=time_unit)
+                            st.write('Cumulative vertical distance traveled over time')
+                            st.line_chart(distances[[time_unit, 'y']], x=time_unit)
 
-                        st.write('Cumulative vertical distance traveled over time')
-                        st.line_chart(distances[[time_unit, 'y']], x=time_unit)
+                            st.write('Cumulative total distance traveled over time')
+                            st.line_chart(distances[[time_unit, 'total']], x=time_unit)
 
-                        st.write('Cumulative total distance traveled over time')
-                        st.line_chart(distances[[time_unit, 'total']], x=time_unit)
+                        with tabs_graphics[1]:
+                            if 'Grooming' in behaviours:
+                                actions['Grooming'] = list(map(lambda x: 1 if x == 'Grooming' else 0, labels))
+                                st.write('Grooming over time')
+                                st.line_chart(actions[[time_unit, 'Grooming']], x=time_unit)
 
-                    with tabs_graphics[1]:
-                        if 'Grooming' in behaviours:
-                            actions['Grooming'] = list(map(lambda x: 1 if x == 'Grooming' else 0, labels))
-                            st.write('Grooming over time')
-                            st.line_chart(actions[[time_unit, 'Grooming']], x=time_unit)
+                            if 'Rearing' in behaviours:
+                                actions['Rearing'] = list(map(lambda x: 1 if x == 'Rearing' else 0, labels))
+                                st.write('Rearing over time')
+                                st.line_chart(actions[[time_unit, 'Rearing']], x=time_unit)
 
-                        if 'Rearing' in behaviours:
-                            actions['Rearing'] = list(map(lambda x: 1 if x == 'Rearing' else 0, labels))
-                            st.write('Rearing over time')
-                            st.line_chart(actions[[time_unit, 'Rearing']], x=time_unit)
+                        bar.progress(100, text='Video analysis has been completed!')
+                        time.sleep(0.1)
+                        bar.empty()
 
-                    bar.progress(100, text='Video analysis has been completed!')
-                    time.sleep(0.1)
-                    bar.empty()
+                    except Exception as e:
+                        st.write('An error occurred during the video processing')
+                        st.write(e)
+                        bar_manual.empty()
 
             z.close()
             with open(f"{zip_name}.zip", "rb") as fp:
@@ -310,3 +307,6 @@ with (mode[1]):
                                          mime="application/zip")
 
 
+# Third page, automatic
+with (mode[2]):
+    st.write("This functionality still needs to be implemented.")

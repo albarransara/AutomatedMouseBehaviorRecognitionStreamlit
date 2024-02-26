@@ -73,6 +73,9 @@ def pos_video(video_name, path_to_video, expansion=80, fps=None):
     # Get the video's FPS rate
     fps_in = vidcap.get(cv2.CAP_PROP_FPS)
 
+    if not vidcap.isOpened():
+        raise Exception("A problem occurred when processing the video. Video couldn't be loaded.")
+
     # Start processing each frame
     success,image = vidcap.read()
 

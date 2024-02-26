@@ -29,17 +29,27 @@ def predict_video(features, behaviours):
     for i in range(0, len(features), 300):
         print('Batch ', i)
 
-        f = feature_extraction(features[i: i + 300])[None]
+        try:
+            f = feature_extraction(features[i: i + 300])[None]
+        except:
+            raise Exception("A problem occurred while predicting the video. Features couldn't get extracted properly.")
 
         # Get the result for each wanted behaviour
         if "Grooming" in behaviours:
             # Load grooming model
-            model = tf.keras.models.load_model('resnet_lstm_accuracy_grooming.h5')
-            grooming.append(model.predict(f))
+            try:
+                model = tf.keras.models.load_model('resnet_lstm_accuracy_grooming.h5')
+                grooming.append(model.predict(f))
+            except:
+                raise Exception("A problem occurred while predicting the video. Grooming model could not predict.")
+
         if "Rearing" in behaviours:
-            # Load grooming model
-            model = tf.keras.models.load_model('resnet_lstm_accuracy_rearing.h5')
-            rearing.append(model.predict(f))
+            try:
+                # Load grooming model
+                model = tf.keras.models.load_model('resnet_lstm_accuracy_rearing.h5')
+                rearing.append(model.predict(f))
+            except:
+                raise Exception("A problem occurred while predicting the video. Rearing model could not predict.")
 
     # Generate dataframes with the results
     if "Grooming" in behaviours:
